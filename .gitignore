@@ -1,0 +1,16 @@
+enums/__pycache__/sexe.cpython-311.pyc
+scripts/__pycache__/create_tables.cpython-311.pyc
+models/__pycache__/resultats_election.cpython-311.pyc
+models/__pycache__/election.cpython-311.pyc
+models/__pycache__/election_stats.cpython-311.pyc
+models/__pycache__/departement.cpython-311.pyc
+models/__pycache__/candidat.cpython-311.pyc
+models/__pycache__/__init__.cpython-311.pyc
+enums/__pycache__/type_election.cpython-311.pyc
+db/__pycache__/base.cpython-311.pyc
+db/__pycache__/__init__.cpython-311.pyc
+
+data_titanic.xlsx
+db/__pycache__/session.cpython-311.pyc
+utils/__pycache__/election_importer.cpython-311.pyc
+utils/__pycache__/election_dataframe.cpython-311.pyc
