@@ -11,30 +11,62 @@ from db import Base
 class Departement(Base):
     __tablename__ = "departements"
 
+    # =====================================================
+    # IDENTITÉ
+    # =====================================================
     code_dept = Column(
         String(2),
-        primary_key=True
+        primary_key=True,
+        comment="Code officiel du département (ex: 01, 59, 75)"
     )
 
     nom_dept = Column(
         String(100),
-        nullable=False
+        nullable=False,
+        comment="Nom du département"
     )
 
-    # Relation vers les stats électorales
+    # =====================================================
+    # RELATIONS
+    # =====================================================
+
+    # Statistiques globales d'une élection par département
     stats = relationship(
         "ElectionStats",
         back_populates="departement",
         cascade="all, delete-orphan"
     )
 
-    __table_args__ = (
-        # Empêche nom vide
-        CheckConstraint("length(nom_dept) > 0", name="ck_nom_dept_non_vide"),
-
-        # Index pour requêtes analytiques
-        Index("ix_departements_nom", "nom_dept"),
+    # Résultats détaillés par candidat et par élection
+    resultats = relationship(
+        "ResultatElection",
+        back_populates="departement",
+        cascade="all, delete-orphan"
     )
 
+    # =====================================================
+    # CONTRAINTES & INDEX
+    # =====================================================
+    __table_args__ = (
+        # Empêche un nom vide ou uniquement composé d'espaces
+        CheckConstraint(
+            "length(trim(nom_dept)) > 0",
+            name="ck_nom_dept_non_vide"
+        ),
+
+        # Index pour requêtes analytiques (recherche par nom)
+        Index(
+            "ix_departements_nom",
+            "nom_dept"
+        ),
+    )
+
+    # =====================================================
+    # REPRÉSENTATION
+    # =====================================================
     def __repr__(self):
-        return f"<Departement(code='{self.code_dept}', nom='{self.nom_dept}')>"
+        return (
+            f"<Departement("
+            f"code_dept='{self.code_dept}', "
+            f"nom_dept='{self.nom_dept}')>"
+        )
