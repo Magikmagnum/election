@@ -72,7 +72,7 @@ class ElectionImporter:
         for _, row in df_departement.iterrows():
             dept = Departement(
                 code_dept=self.normalize_code(row.code_dept),
-                nom_dept=row.nom_dept
+                nom_dept=row.nom_dept.lower()
             )
             self.session.merge(dept)  # merge pour insert ou update
         self.session.commit()
@@ -102,8 +102,7 @@ class ElectionImporter:
                 nb_inscrits=int(row.nb_inscrits),
                 nb_abstentions=int(row.nb_abstentions),
                 nb_votants=int(row.nb_votants),
-                nb_blancs=int(row.nb_blancs),
-                nb_nuls=int(row.nb_nuls)
+                nb_blancs_nuls=int(row.nb_blancs_nuls),
             )
             self.session.add(stats)
         self.session.commit()

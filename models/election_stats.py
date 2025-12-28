@@ -17,7 +17,7 @@ class ElectionStats(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     code_dept = Column(
-        String(2),
+        String(3),
         ForeignKey("departements.code_dept", ondelete="CASCADE"),
         nullable=False
     )
@@ -31,8 +31,7 @@ class ElectionStats(Base):
     nb_inscrits = Column(Integer, nullable=False)
     nb_abstentions = Column(Integer, nullable=False)
     nb_votants = Column(Integer, nullable=False)
-    nb_blancs = Column(Integer, nullable=False)
-    nb_nuls = Column(Integer, nullable=False)
+    nb_blancs_nuls = Column(Integer, nullable=False)
 
     departement = relationship(
         "Departement",
@@ -56,8 +55,7 @@ class ElectionStats(Base):
         CheckConstraint("nb_inscrits >= 0", name="ck_inscrits_pos"),
         CheckConstraint("nb_votants >= 0", name="ck_votants_pos"),
         CheckConstraint("nb_abstentions >= 0", name="ck_abstentions_pos"),
-        CheckConstraint("nb_blancs >= 0", name="ck_blancs_pos"),
-        CheckConstraint("nb_nuls >= 0", name="ck_nuls_pos"),
+        CheckConstraint("nb_blancs_nuls >= 0", name="ck_blancs_pos"),
 
         # Cohérence électorale basique
         CheckConstraint(
