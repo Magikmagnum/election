@@ -44,6 +44,13 @@ class Departement(Base):
         cascade="all, delete-orphan"
     )
 
+    # Populations par sexe / tranche d'âge / année
+    populations = relationship(
+        "PopulationDepartement",
+        back_populates="departement",
+        cascade="all, delete-orphan"
+    )
+
     # =====================================================
     # CONTRAINTES & INDEX
     # =====================================================
