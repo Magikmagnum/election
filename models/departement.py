@@ -51,6 +51,12 @@ class Departement(Base):
         cascade="all, delete-orphan"
     )
 
+    chomages = relationship(
+        "Chomage",
+        back_populates="departement",
+        cascade="all, delete-orphan"
+    )
+
     # =====================================================
     # CONTRAINTES & INDEX
     # =====================================================
