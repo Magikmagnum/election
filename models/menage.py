@@ -3,8 +3,8 @@ from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
-class MenageDepense(Base):
-    __tablename__ = "menage_depenses"
+class Menage(Base):
+    __tablename__ = "menage_contexte"
 
     # =====================================================
     # IDENTIFIANT
@@ -13,7 +13,7 @@ class MenageDepense(Base):
         Integer,
         primary_key=True,
         autoincrement=True,
-        comment="Identifiant technique de l'année de dépense"
+        comment="Identifiant technique de l'année de contexte ménage"
     )
 
     # =====================================================
@@ -23,32 +23,47 @@ class MenageDepense(Base):
         Integer,
         nullable=False,
         unique=True,
-        comment="Année des données de dépenses de ménage"
+        comment="Année des données"
     )
 
+    # Dépenses des ménages
     pre_engagees = Column(
         Float,
-        nullable=False,
+        nullable=True,
         comment="Part des dépenses pré-engagées en pourcentage"
     )
 
     logement = Column(
         Float,
-        nullable=False,
+        nullable=True,
         comment="Part des dépenses liées au logement en pourcentage"
     )
 
     service_multimedia = Column(
         Float,
-        nullable=False,
+        nullable=True,
         comment="Part des dépenses pour les services de télévision et télécommunications en pourcentage"
+    )
+
+    # Épargne des ménages
+    taux_epargne = Column(
+        Float,
+        nullable=True,
+        comment="Taux d'épargne des ménages en pourcentage"
+    )
+
+    # Prix à la consommation
+    prix_consommation = Column(
+        Float,
+        nullable=True,
+        comment="Inflation ou évolution des prix à la consommation en pourcentage"
     )
 
     # =====================================================
     # INDEX
     # =====================================================
     __table_args__ = (
-        Index("ix_menage_depenses_annee", "annee"),
+        Index("ix_menage_contexte_annee", "annee"),
     )
 
     # =====================================================
@@ -56,10 +71,12 @@ class MenageDepense(Base):
     # =====================================================
     def __repr__(self) -> str:
         return (
-            f"<MenageDepenses("
+            f"<Menage("
             f"annee={self.annee}, "
             f"pre_engagees={self.pre_engagees}, "
             f"logement={self.logement}, "
-            f"service_multimedia={self.service_multimedia}"
+            f"service_multimedia={self.service_multimedia}, "
+            f"taux_epargne={self.taux_epargne}, "
+            f"prix_consommation={self.prix_consommation}"
             f")>"
         )
