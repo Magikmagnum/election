@@ -6,8 +6,7 @@ from .election import Election
 from .fait_securite import FaitSecurite
 from .immigration import Immigration    
 from .indicateur import Indicateur
-from .menage import MenageDepense
-from .menage_epargne import MenageEpargne
+from .menage import Menage
 from .population_departement import PopulationDepartement
 from .resultats_election import ResultatElection
 from .sexe import Sexe
