@@ -1,7 +1,5 @@
 from sqlalchemy import Column, Integer, Float, Index
-from sqlalchemy.orm import declarative_base
-
-Base = declarative_base()
+from db import Base
 
 class Menage(Base):
     __tablename__ = "menage_contexte"
