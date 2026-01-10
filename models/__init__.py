@@ -12,3 +12,4 @@ from .resultats_election import ResultatElection
 from .sexe import Sexe
 from .tranche_age import TrancheAge
 from .unite_de_compte import UniteDeCompte
+from .entreprise import Entreprise
