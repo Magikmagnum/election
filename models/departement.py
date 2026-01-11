@@ -57,6 +57,13 @@ class Departement(Base):
         cascade="all, delete-orphan"
     )
 
+    # Faits de sécurité liés au département
+    faits_securite = relationship(
+        "FaitSecurite",
+        back_populates="departement",
+        cascade="all, delete-orphan"
+    )
+
     # =====================================================
     # CONTRAINTES & INDEX
     # =====================================================
