@@ -4,7 +4,8 @@ from sqlalchemy import (
     ForeignKey,
     Float,
     CheckConstraint,
-    Index
+    Index, 
+    String
 )
 from sqlalchemy.orm import relationship
 from db import Base
@@ -38,6 +39,12 @@ class FaitSecurite(Base):
         comment="Taux pour 1000 habitants (normalisé par la population INSEE)"
     )
 
+    annee = Column(
+        Integer,
+        nullable=False,
+        comment="Année du fait de sécurité"
+    )
+
     # =====================================================
     # CLÉS ÉTRANGÈRES
     # =====================================================
@@ -55,6 +62,13 @@ class FaitSecurite(Base):
         comment="Référence vers l'unité de compte (Victime, Infraction, etc.)"
     )
 
+    departement_code = Column(
+        String(2),
+        ForeignKey("departements.code_dept", ondelete="CASCADE"),
+        nullable=False,
+        comment="Référence vers le département concerné par le fait de sécurité"
+    )
+
     # =====================================================
     # RELATIONS ORM
     # =====================================================
@@ -65,6 +79,11 @@ class FaitSecurite(Base):
 
     unite_de_compte = relationship(
         "UniteDeCompte",
+        back_populates="faits_securite"
+    )
+
+    departement = relationship(
+        "Departement",
         back_populates="faits_securite"
     )
 
@@ -88,6 +107,18 @@ class FaitSecurite(Base):
             "ix_fait_securite_unite",
             "unite_de_compte_id"
         ),
+        Index(
+            "ix_fait_securite_departement",
+            "departement_code"
+        ),
+        Index(
+            "ix_fait_securite_dept_annee_indicateur_unite",
+            "departement_code",
+            "annee",
+            "indicateur_id",
+            "unite_de_compte_id",
+            unique=True
+        ),
     )
 
     # =====================================================
@@ -97,6 +128,8 @@ class FaitSecurite(Base):
         return (
             f"<FaitSecurite("
             f"id={self.id}, "
+            f"departement_code='{self.departement_code}', "
+            f"annee={self.annee}, "
             f"indicateur_id={self.indicateur_id}, "
             f"unite_de_compte_id={self.unite_de_compte_id}, "
             f"nombre={self.nombre}, "
