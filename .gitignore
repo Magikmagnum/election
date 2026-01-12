@@ -6,3 +6,6 @@ utils/__pycache__/*
 db/__pycache__/*
 
 data_titanic.xlsx
+
+# Large data files
+data/sante/sante.csv
