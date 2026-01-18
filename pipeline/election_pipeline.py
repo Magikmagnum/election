@@ -1,139 +1,131 @@
-# election_pipeline.py
+# %% [markdown]
+# # Préparation des résultats électoraux
+
+# %%
 import pandas as pd
-from datetime import date
-from tqdm import tqdm
+import seaborn as sns
+import matplotlib.pyplot as plt
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from sqlalchemy.orm import Session
 from db import SessionLocal
-from utils.election_importer import ElectionImporter
-from enums.type_election import TypeElection
+from models import ResultatElection, Candidat, Departement, Election, ElectionStats
 
-pd.set_option("display.max_columns", None)
-pd.set_option("display.width", None)
+# Création de la session
+session = SessionLocal()
 
-BASE_PATH = "./data/elections"
+# %% [markdown]
+# ## 1. Récupération des résultats avec relations
 
-ELECTIONS = {
-    2012: {
-        "file_pattern": "presidentielles-2012-{}.xlsx",
-        "dates": {1: date(2012, 4, 22), 2: date(2012, 5, 6)},
-        "infos_cols": 13
-    },
-    2017: {
-        "file_pattern": "presidentielles-2017-{}.xlsx",
-        "dates": {1: date(2017, 4, 23), 2: date(2017, 5, 7)},
-        "infos_cols": 16
-    },
-    2022: {
-        "file_pattern": "presidentielles-2022-{}.xlsx",
-        "dates": {1: date(2022, 4, 10), 2: date(2022, 4, 24)},
-        "infos_cols": 16
-    }
+# %%
+results = session.query(
+    ResultatElection.id.label("resultat_id"),
+    ResultatElection.nb_voix,
+    ResultatElection.code_dept,
+    Departement.nom_dept,
+    ResultatElection.election_id,
+    Election.date.label("date_election"),
+    Election.type_election,
+    Election.tour,
+    Candidat.id.label("candidat_id"),
+    Candidat.nom.label("nom_candidat"),
+    Candidat.prenom.label("prenom_candidat"),
+    Candidat.sexe,
+).join(Candidat, ResultatElection.candidat_id == Candidat.id
+).join(Departement, ResultatElection.code_dept == Departement.code_dept
+).join(Election, ResultatElection.election_id == Election.id
+).all()
+
+# Conversion en DataFrame et transformation Enum en string
+df_resultats = pd.DataFrame([r._asdict() for r in results])
+df_resultats["sexe_candidat"] = df_resultats["sexe"].apply(lambda x: x.value)
+df_resultats.drop(columns=["sexe"], inplace=True)
+df_resultats["type_election"] = df_resultats["type_election"].apply(lambda x: x.value)
+
+# %% [markdown]
+# ## 2. Mapping candidats → partis
+
+# %%
+partis = {
+    'JOLY': 'EELV', 'LE PEN': 'RN', 'SARKOZY': 'LR', 'MÉLENCHON': 'LFI', 'POUTOU': 'NPA',
+    'ARTHAUD': 'LO', 'CHEMINADE': 'SP', 'BAYROU': 'MoDem', 'DUPONT-AIGNAN': 'DF', 
+    'HOLLANDE': 'PS', 'MACRON': 'LREM', 'FILLON': 'LR', 'HAMON': 'PS', 'LASSALLE': 'Résistons !',
+    'ASSELINEAU': 'UPR', 'ROUSSEL': 'PCF', 'ZEMMOUR': 'Reconquête', 'HIDALGO': 'PS', 'JADOT': 'EELV',
+    'PÉCRESSE': 'LR'
 }
+df_resultats['parti'] = df_resultats['nom_candidat'].map(partis)
 
-TOURS = [1, 2]
+# %% [markdown]
+# ## 3. Récupération des statistiques électorales par département
 
-def run_election_pipeline(elections=None, show_progress=True):
-    """
-    Pipeline d'import des élections présidentielles.
-    
-    elections: liste d'années à traiter. Si None, traite toutes.
-    show_progress: afficher les barres de progression pour les candidats.
-    """
-    session = SessionLocal()
-    importer = ElectionImporter()
+# %%
+stats = session.query(
+    ElectionStats.election_id,
+    ElectionStats.code_dept,
+    ElectionStats.nb_inscrits,
+    ElectionStats.nb_votants,
+    ElectionStats.nb_abstentions,
+    ElectionStats.nb_blancs_nuls
+).all()
+df_stats = pd.DataFrame([s._asdict() for s in stats])
 
-    elections_to_run = elections if elections else ELECTIONS.keys()
+# Merge avec les résultats
+df_resultats = df_resultats.merge(df_stats, on=["election_id", "code_dept"], how="left")
 
-    for year in elections_to_run:
-        config = ELECTIONS[year]
-        print(f"\n🎯 Traitement élections présidentielles {year}")
+# %% [markdown]
+# ## 4. Calcul du pourcentage de voix
 
-        for tour in TOURS:
-            print(f"\n🚀 Tour {tour} ({year})")
+# %%
+df_resultats['pct_voix'] = (df_resultats['nb_voix'] / df_resultats['nb_votants']) * 100
+df_resultats['pct_voix'] = df_resultats['pct_voix'].round(2)
 
-            file_path = f"{BASE_PATH}/{config['file_pattern'].format(tour)}"
-            df = pd.read_excel(file_path)
+# %% [markdown]
+# ## 5. Extraction de l'année et fusion prénom + nom
 
-            # Correction spécifique 2012 tour 2
-            if year == 2012 and tour == 2 and 107 in df.index:
-                df.drop(index=107, inplace=True)
+# %%
+df_resultats['date_election'] = pd.to_datetime(df_resultats['date_election'])
+df_resultats['annee'] = df_resultats['date_election'].dt.year
 
-            # Nettoyage
-            df.drop(columns=["Etat saisie"], errors="ignore", inplace=True)
+df_resultats['nom_candidat'] = df_resultats['prenom_candidat'] + ' ' + df_resultats['nom_candidat']
 
-            # Infos générales
-            infos_cols = config['infos_cols']
-            df_infos = df.iloc[:, :infos_cols].copy()
+# %% [markdown]
+# ## 6. Calcul des pourcentages d'abstentions et de votes blancs/nuls
 
-            if year == 2012:
-                df_infos.columns = [
-                    "code_dept", "nom_dept", "nb_inscrits", "nb_abstentions",
-                    "pct_abstentions", "nb_votants", "pct_votants",
-                    "nb_blancs_nuls", "pct_blancs_nuls_inscrits",
-                    "pct_blancs_nuls_votants", "nb_exprimes",
-                    "pct_exprimes_inscrits", "pct_exprimes_votants"
-                ]
-                base_cols = ["code_dept", "nom_dept", "nb_inscrits", "nb_abstentions", "nb_votants", "nb_blancs_nuls"]
-            else:
-                df_infos.columns = [
-                    "code_dept", "nom_dept", "nb_inscrits", "nb_abstentions",
-                    "pct_abstentions", "nb_votants", "pct_votants",
-                    "nb_blancs", "pct_blancs_inscrits", "pct_blancs_votants",
-                    "nb_nuls", "pct_nuls_inscrits", "pct_nuls_votants",
-                    "nb_exprimes", "pct_exprimes_inscrits", "pct_exprimes_votants"
-                ]
-                base_cols = ["code_dept", "nom_dept", "nb_inscrits", "nb_abstentions", "nb_votants", "nb_blancs", "nb_nuls"]
+# %%
+df_resultats['pct_abstentions'] = (df_resultats['nb_abstentions'] / df_resultats['nb_votants']) * 100
+df_resultats['pct_blancs_nuls'] = (df_resultats['nb_blancs_nuls'] / df_resultats['nb_votants']) * 100
 
-            df_base = df_infos[base_cols].copy()
 
-            if {"nb_blancs", "nb_nuls"}.issubset(df_base.columns):
-                df_base["nb_blancs_nuls"] = df_base["nb_blancs"].fillna(0) + df_base["nb_nuls"].fillna(0)
-                df_base.drop(columns=["nb_blancs", "nb_nuls"], inplace=True)
+# %% [markdown]
+# ## 7. Suppression des colonnes inutiles
 
-            df_departement = df_base[["code_dept", "nom_dept"]]
-            df_stat_elections = df_base.drop(columns=["nom_dept"])
+# %%
+colonnes_a_supprimer = [
+    "nom_dept",
+    "election_id",
+    "prenom_candidat",
+    "type_election",
+    "sexe_candidat",
+    'nb_votants',
+    'nb_voix',
+    'nb_inscrits',
+    'date_election',
+    'nb_abstentions',
+    'nb_blancs_nuls',
+    'nb_votants'
+]
+df_resultats = df_resultats.drop(columns=colonnes_a_supprimer)
 
-            # Résultats candidats
-            df_candidates = df.iloc[:, infos_cols:]
-            COLS_PER_CANDIDATE = 6
-            num_candidates = df_candidates.shape[1] // COLS_PER_CANDIDATE
 
-            dfs = []
-            iterator = range(num_candidates)
-            if show_progress:
-                iterator = tqdm(iterator, desc="Traitement candidats", ncols=100)
+# %% [markdown]
+# ## 8. Pivot pour avoir une colonne par parti
 
-            for i in iterator:
-                start = i * COLS_PER_CANDIDATE
-                end = start + COLS_PER_CANDIDATE
+# %%
+df_pivot = df_resultats.pivot_table(
+    index=['code_dept', 'tour', 'annee'],  # ligne = département + tour + année
+    columns='parti',                        # colonne par parti
+    values='pct_voix',                      # valeur = pourcentage de voix
+    fill_value=0                             # si un parti n’a pas de voix = 0
+).reset_index()
 
-                df_cand = df_candidates.iloc[:, start:end].copy()
-                df_cand.columns = ["sexe", "nom", "prenom", "voix", "pct_voix_ins", "pct_voix_exp"]
-                df_cand = pd.concat(
-                    [df[["Code du département", "Libellé du département"]], df_cand],
-                    axis=1
-                )
-                dfs.append(df_cand)
-
-            df_candidat_resultat = pd.concat(dfs, ignore_index=True)[
-                ["Code du département", "Libellé du département", "sexe", "nom", "prenom", "voix"]
-            ]
-
-            # Import DB
-            election_date = config["dates"][tour]
-
-            election = importer.get_or_create_election(
-                election_date=election_date,
-                type_election=TypeElection.PRESIDENTIELLE,
-                tour=tour
-            )
-
-            if not df_departement.empty:
-                importer.import_departements(df_departement)
-            if not df_stat_elections.empty:
-                importer.import_stats(df_stat_elections, election.id)
-            if not df_candidat_resultat.empty:
-                importer.import_candidats_resultats(df_candidat_resultat, election.id)
-
-            print(f"✅ Élection {year} – Tour {tour} importé")
-
-    print("\n🎉 Import complet des présidentielles terminé")
+# Vérification
+df_pivot.head()
